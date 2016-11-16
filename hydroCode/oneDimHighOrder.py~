@@ -1,6 +1,7 @@
 import numpy as np
 import pylab as plt
 
+
 def flux(alphas,FL,FR,UL,UR):
 	# Calculate fluxes 
 	alphaPlus   = alphas[0]
@@ -109,7 +110,11 @@ for n in range(Nt-1):
 		alphasiPlus   = alpha(lambdas[2:6],UC,UR)
 		FiPlus        = flux(alphasiPlus,FC,FR,UC,UR)
 		L = -(FiPlus - FiMinus)/dx
-		U[i,n+1,:] = U[i,n,:] + dt*L
+		
+		#RK 3
+		U1 = U[i,n,:] + dt*L
+		U2 = (3./4.) * U[i,n,:] + (1./4.)*U1 + (1./4.)*dt*
+		#Update F to match changes to U
 		F[i,n+1,0] = U[i,n+1,1]
 		F[i,n+1,1] = (gamma-1)*(U[i,n+1,2] - 0.5*U[i,n+1,1]*U[i,n+1,1]/U[i,n+1,0]) + U[i,n+1,1]*U[i,n+1,1]/U[i,n+1,0]
 		F[i,n+1,2] = ((gamma-1)*(U[i,n+1,2] - 0.5*U[i,n+1,1]*U[i,n+1,1]/U[i,n+1,0])  + U[i,n+1,2]) * U[i,n+1,1]/U[i,n+1,0]
@@ -119,6 +124,7 @@ for n in range(Nt-1):
 		F[0,n+1,:] = F[0,0,:]
 		U[-1,n+1,:] = U[-1,0,:]
 		F[-1,n+1,:] = F[-1,0,:]
+
 		if count %10000 == 0:
 			print count*100/(Nt*Nx), '% Complete'
 
