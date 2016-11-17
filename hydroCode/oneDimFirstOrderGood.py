@@ -42,6 +42,19 @@ def alphaFunc(lambdaPlus,lambdaMinus):
 def energyFunc(p,gamma,rho,v):
 	# Calculate energy in terms of p, gamma, rho, v
 	return p/(gamma-1) + 0.5* rho*v**2
+
+def fluxUpdate(U,F,n):
+	# Calculate updated values of F based on a new U
+	newRho  = U[1:-1,n+1,0]
+	newRhoV = U[1:-1,n+1,1]
+	newV    = newRhoV/newRho
+	newE    = U[1:-1,n+1,2]
+	newP    = (gamma-1) * (newE - 0.5*newRho*newV**2)
+	
+	F[1:-1,n+1,0] = newRho*newV
+	F[1:-1,n+1,1] = newRho*newV**2 + newP
+	F[1:-1,n+1,2] = (newE+newP)*newV
+	return F
 	
 ## COMPUTATION PARAMETERS
 tMin    = 0.
@@ -90,17 +103,8 @@ for n in range(Nt-1):
 	count += 1
 	L = LFunc(U,F,dx,n)
 	U[1:-1,n+1,:] = U[1:-1,n,:] + dt*L
-	
 	# Update all fluxes based on this update
-	newRho  = U[1:-1,n+1,0]
-	newRhoV = U[1:-1,n+1,1]
-	newV    = newRhoV/newRho
-	newE    = U[1:-1,n+1,2]
-	newP    = (gamma-1) * (newE - 0.5*newRho*newV**2)
-	
-	F[1:-1,n+1,0] = newRho*newV
-	F[1:-1,n+1,1] = newRho*newV**2 + newP
-	F[1:-1,n+1,2] = (newE+newP)*newV
+	F = fluxUpdate(U,F,n)
 	# Reinforce BCS
 	U[0,n+1,:] = U[0,0,:]
 	F[0,n+1,:] = F[0,0,:]
