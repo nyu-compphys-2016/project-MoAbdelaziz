@@ -1,7 +1,10 @@
 import numpy as np
 import pylab as plt
 import time
-
+def minmod(x,y,z):
+	# Minmod function
+	return 0.25*np.abs(np.sign(x) + np.sign(y))*(np.sign(x) + np.sign(z)) * np.minimum(np.abs(x),np.abs(y),np.abs(z))
+	
 N = 1000
 A = np.arange(N)
 Aavg1 = np.zeros(len(A)-1)
@@ -22,3 +25,7 @@ print 'Loop time:',loopTime
 print 'Array time:',arrayTime
 print 'Factor', loopTime/arrayTime
 
+A = np.arange(5)
+B = .2*A
+C = 3*A
+print minmod(A,B,C)
