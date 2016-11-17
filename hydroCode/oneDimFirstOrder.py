@@ -1,6 +1,7 @@
 import numpy as np
 import pylab as plt
 
+## BASICALLY OBSOLETE, oneDimFirstOrderGood.py is much better (array slicing instead of all this trash)
 def flux(alphas,FL,FR,UL,UR):
 	# Calculate fluxes 
 	alphaPlus   = alphas[0]
