@@ -102,9 +102,9 @@ U2 = U.copy()
 F1 = F.copy()
 F2 = F.copy()
 ## MAIN LOOP
-
+count = 0 # Track loop number
 for n in range(Nt-1):
-
+	count +=1 
 	#RK3 Updating
 	U1[1:-1,n,:] = U[1:-1,n,:] + dt*LFunc(U,F,dx,n)
 	F1 = fluxUpdate(U1,F,n-1)
@@ -113,18 +113,20 @@ for n in range(Nt-1):
 	U[1:-1,n+1,:] = (1./3.)*U[1:-1,n,:] + (2./3.)*U2[1:-1,n,:] + (2./3.)*dt*LFunc(U2,F2,dx,n)
 	# Update all fluxes based on this update
 	F = fluxUpdate(U,F,n)
-	# Reinforce BCS
-	U[0,n+1,:] = U[0,0,:]
-	F[0,n+1,:] = F[0,0,:]
-	U[-1,n+1,:] = U[-1,0,:]
-	F[-1,n+1,:] = F[-1,0,:]
+	# Reinforce BCS (return ghost cells to initial conditions) (Need two ghost cells on each side for 2nd order spatial)
+	U[0:2,n+1,:] = U[0,0,:]
+	F[0:2,n+1,:] = F[0,0,:]
+	U[-2::,n+1,:] = U[-1,0,:]
+	F[-2::,n+1,:] = F[-1,0,:]
 	U1 = U.copy()
 	U2 = U.copy()
 	F1 = F.copy()
 	F2 = F.copy()
+	if count % 100 == 0:
+		print count*100/Nt , '% Done'
 plt.figure()
 plt.plot(xPoints,U[:,-1,0], label = 'Sod Test')
-plt.ylim([0,1.05])
+plt.ylim([0,rhoL*1.1])
 plt.legend()
 plt.show()
 
