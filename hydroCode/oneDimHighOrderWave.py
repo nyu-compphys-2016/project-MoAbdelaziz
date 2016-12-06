@@ -103,18 +103,19 @@ def interpolate(v,gamma,p,rho):
 	#print  minmod([0,0,0,0,-1],[0,0,0,-1,-1],[0,0,0,-1,0,])
 	#print np.amin([np.fabs(np.array([0,-1])),  np.fabs(np.array([-1,-1])),  np.fabs(np.array([-1,0]))],axis=0)
 	rights = cs[2:-1,:] - 0.5* minmod(theta*(cs[2:-1,:] - cs[1:-2,:]) , 0.5*(cs[3::,:] - cs[1:-2,:]) , theta*(cs[3::,:] - cs[2:-1,:]))
+	print cs[:,0]
 	return lefts, rights
 
 ## COMPUTATION PARAMETERS
 tMin    = 0.
 tMax    = 1.0
-Nt      = 500
+Nt      = 100
 dt      = (tMax-tMin)/Nt
 tPoints = np.linspace(tMin,tMax,Nt)
 
 xMin    = 0.
 xMax    = 2.
-Nx      = 500
+Nx      = 7
 dx      = (xMax - xMin)/Nx
 
 xPoints = np.linspace(xMin,xMax,Nx)
