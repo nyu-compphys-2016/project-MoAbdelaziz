@@ -12,7 +12,6 @@ tableau20 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),
 for i in range(len(tableau20)):    
     r, g, b = tableau20[i]    
     tableau20[i] = (r / 255., g / 255., b / 255.)
-    
 ## FUNCTION DEFINITIONS
 
 def LFunc(U,F,dx,n):
@@ -90,7 +89,7 @@ def fluxUpdate(U,F,n):
 	
 def minmod(x,y,z):
 	# Minmod function
-	return 0.25*np.fabs(np.sign(x) + np.sign(y))*(np.sign(x) + np.sign(z)) * np.amin([np.fabs(x),np.fabs(y),np.fabs(z)],axis=0)
+	return 0.25*np.fabs(np.sign(x) + np.sign(y))*(np.sign(x) + np.sign(z)) * np.minimum.reduce([np.fabs(x),np.fabs(y),np.fabs(z)])
 	
 def interpolate(v,gamma,p,rho):
 	#Interpolate states at interface sides for second order
@@ -108,47 +107,59 @@ def interpolate(v,gamma,p,rho):
 
 ## COMPUTATION PARAMETERS
 tMin    = 0.
-tMax    = 0.2
-Nt      = 750
+tMax    = 1.0
+Nt      = 500
 dt      = (tMax-tMin)/Nt
 tPoints = np.linspace(tMin,tMax,Nt)
 
 xMin    = 0.
-xMax    = 1.
-Nx      = 750
+xMax    = 2.
+Nx      = 500
 dx      = (xMax - xMin)/Nx
 
 xPoints = np.linspace(xMin,xMax,Nx)
+
 ## INITIAL CONDITIONS
-gamma = 1.4 # Adiabatic index
+gamma = 5./3. # Adiabatic index
 
-pL    = 1.0 # Pressure on the left
-rhoL  = 1.0 # Mass dens on the left
-vL    = 0.0 # Velocity on the left
+p0    = 0.6 
+rho0  = 1.0 
+sigma = 0.4
+x0    = 0.5
+alpha = 0.2
 
-pR    = 0.125 # Right
-rhoR  = 0.1
-vR    = 0.0
+# Isentropic wave profile
+def f(x):
+	A = x.copy()
+	for i in range(len(x)):
+		if np.fabs(x[i]-x0) < sigma:
+			A[i] = (1 - ((x[i] - x0)/sigma)**2)**2
+		else:
+			A[i] = 0
+	return A
+	
+rhox = rho0*(1+alpha*f(xPoints))
+px = p0*(rhox/rho0)**gamma
 
+cs = np.sqrt(gamma*px/rhox)
+cs0 = np.sqrt(gamma*p0/rho0) 
+
+vx = 2./(gamma-1.) * (cs - cs0)
+		
 U = np.zeros([Nx,Nt,3])
 F = np.zeros([Nx,Nt,3])
 FHLL = np.zeros([Nx-3,Nt,3]) #N-3 interfaces for N cells with 2 ghost cells on each end
 U1 = np.zeros(U.shape)
 U2 = np.zeros(U.shape)
-# Left side
-U[0:Nx/2,0,0] = rhoL
-U[0:Nx/2,0,1] = rhoL*vL
-U[0:Nx/2,0,2] = energyFunc(pL,gamma,rhoL,vL)
-F[0:Nx/2,0,0] = rhoL*vL
-F[0:Nx/2,0,1] = rhoL*vL**2 + pL
-F[0:Nx/2,0,2] = (energyFunc(pL,gamma,rhoL,vL) + pL)*vL
-# Right side
-U[Nx/2::,0,0] = rhoR
-U[Nx/2::,0,1] = rhoR*vR
-U[Nx/2::,0,2] = energyFunc(pR,gamma,rhoR,vR)
-F[Nx/2::,0,0] = rhoR*vR
-F[Nx/2::,0,1] = rhoR*vR**2 + pR
-F[Nx/2::,0,2] = (energyFunc(pR,gamma,rhoR,vR) + pR)*vR
+# Incorporate the wave into U and F
+
+U[:,0,0] = rhox
+U[:,0,1] = rhox*vx
+U[:,0,2] = energyFunc(px,gamma,rhox,vx)
+F[:,0,0] = rhox*vx
+F[:,0,1] = rhox*vx**2 + px
+F[:,0,2] = (energyFunc(px,gamma,rhox,vx) + px)*vx
+
 U1 = U.copy() # Need to maintain BCS for U1 and U2 as well
 U2 = U.copy()
 F1 = F.copy()
@@ -185,12 +196,10 @@ for n in range(Nt-1):
 		
 		
 ## CONVERGENCE CALCULATIONS
-xE, rhoE, vE, pE = ee.riemann(xMin, xMax, xMax/2., Nx, tMax, rhoL, vL, pL, rhoR, vR, pR, gamma,TOL=1.0e-14, MAX=100)
-diff = np.abs(rhoE - U[:,-1,0])
-L1   = (dx*diff).sum()
-print Nx , L1
-
-
+sDiff = 1./(gamma-1) * np.log10((F[:,-1,1] - U[:,-1,1]**2/U[:,-1,0])/p0 * (U[:,-1,0]/rho0)**(-gamma))
+L1 = np.trapz(np.fabs(sDiff) , x = xPoints) 
+print Nx, L1
+## PLOTTING
 plt.figure()
 plt.plot(xPoints,U[:,0,0], label = 'Initial Mass Density' , color = tableau20[1], lw = 3)
 plt.plot(xPoints,U[:,-1,0], label = 'Final Mass Density' , color = tableau20[0], lw = 3)
@@ -198,10 +207,10 @@ plt.plot(xPoints,U[:,0,1], label = 'Initial Momentum Density', color = tableau20
 plt.plot(xPoints,U[:,-1,1], label = 'Final Momentum Density', color = tableau20[2], lw = 3)
 plt.plot(xPoints,U[:,0,2], label = 'Initial Energy Density', color = tableau20[5], lw =3 )
 plt.plot(xPoints,U[:,-1,2], label = 'Final Energy Density', color = tableau20[4], lw = 3)
-plt.title('Evolution of the Sod Tube at t='+str(tMax), fontsize = 24)
+plt.title('Evolution of the Isentropic Wave at t='+str(tMax), fontsize = 24)
 plt.xlabel('X Position' , fontsize = 18)
 plt.ylabel('Conserved Quantity', fontsize =18)
 plt.tick_params(labelsize=14)
-plt.legend(loc = 'upper right')
+plt.legend(loc = 'center')
 plt.show()
 

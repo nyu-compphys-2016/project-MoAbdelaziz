@@ -1,6 +1,19 @@
 import numpy as np
 import pylab as plt
+import eulerExact as ee
 
+# These are the "Tableau 20" colors as RGB.    
+tableau20 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
+             (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
+             (148, 103, 189), (197, 176, 213), (140, 86, 75), (196, 156, 148),    
+             (227, 119, 194), (247, 182, 210), (127, 127, 127), (199, 199, 199),    
+             (188, 189, 34), (219, 219, 141), (23, 190, 207), (158, 218, 229)]  
+# Scale the RGB values to the [0, 1] range, which is the format matplotlib accepts.    
+for i in range(len(tableau20)):    
+    r, g, b = tableau20[i]    
+    tableau20[i] = (r / 255., g / 255., b / 255.)
+    
+    
 ## FUNCTION DEFINITIONS
 
 def LFunc(U,F,dx,n):
@@ -59,24 +72,25 @@ def fluxUpdate(U,F,n):
 ## COMPUTATION PARAMETERS
 tMin    = 0.
 tMax    = 0.2
-Nt      = 20000
+Nt      = 12000
 dt      = (tMax-tMin)/Nt
 tPoints = np.linspace(tMin,tMax,Nt)
 
 xMin    = 0.
-xMax    = 4
-Nx      = 2000
+xMax    = 1
+Nx      = 12000
 dx      = (xMax - xMin)/Nx
 
-xPoints = np.linspace(xMin,xMax,Nx)
+#xPoints = np.linspace(xMin,xMax,Nx)
+xPoints = xMin + (xMax-xMin)/float(Nx) * (np.arange(Nx) + 0.5)
 ## INITIAL CONDITIONS
 gamma = 1.4 # Adiabatic index
-pL = 100. # Pressure on the left
-rhoL = 10. # Mass dens on the left
+pL = 1. # Pressure on the left
+rhoL = 1. # Mass dens on the left
 vL = 0.0 # Velocity on the left
 
-pR = 1. # Right
-rhoR = 1.
+pR = .125 # Right
+rhoR = .1
 vR = 0.0
 
 U = np.zeros([Nx,Nt,3])
@@ -110,10 +124,24 @@ for n in range(Nt-1):
 	F[0,n+1,:] = F[0,0,:]
 	U[-1,n+1,:] = U[-1,0,:]
 	F[-1,n+1,:] = F[-1,0,:]
-	if count % 100 == 0:
+	if count % 1000 == 0:
 		print count*100/Nt , '% Done'
+		
+## CONVERGENCE CALCULATIONS
+xE, rhoE, vE, pE = ee.riemann(xMin, xMax, xMax/2., Nx, tMax, rhoL, vL, pL, rhoR, vR, pR, gamma,TOL=1.0e-14, MAX=100)
+#diff = np.abs(rhoE - U[:,-1,0])
+L1   = (dx*diff).sum()
+print Nx , L1
+
+## PLOTTING
 plt.figure()
-plt.plot(xPoints,U[:,-1,0], label = 'Hard Shock Test')
+plt.title('Density in the Sod Tube Problem at t=0.2', fontsize = 24)
+plt.xlabel('X Position' , fontsize = 18)
+plt.ylabel(r'Density', fontsize =18)
+plt.tick_params(labelsize=14)
+plt.xlim([xMin,xMax])
+plt.plot(xPoints,U[:,-1,0], label = 'Computed Density', lw = 3, color = tableau20[0])
+plt.plot(xE     , rhoE    , label = 'Exact Solution', lw = 3, color = tableau20[2])
 plt.ylim([0,rhoL*1.1])
 plt.legend()
 plt.show()
