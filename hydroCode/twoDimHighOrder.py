@@ -5,6 +5,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import matplotlib.animation as animation
+import initialConds
+
 showAnim = 1 
 saveAnim = 1
 # These are the "Tableau 20" colors as RGB.    
@@ -148,19 +150,19 @@ def interpolate(v,gamma,p,rho):
 
 ## COMPUTATION PARAMETERS
 tMin    = 0.
-tMax    = 2.
-Nt      = 500
+tMax    = 0.2
+Nt      = 200
 dt      = (tMax-tMin)/Nt
 tPoints = np.linspace(tMin,tMax,Nt)
 
 xMin    = 0.
 xMax    = 1.
-Nx      = 50
+Nx      = 5
 dx      = (xMax - xMin)/Nx
 
 yMin    = 0.
 yMax    = 1.
-Ny      = 50
+Ny      = 5
 dy      = (yMax - yMin)/Ny
 
 
@@ -205,23 +207,23 @@ U2 = np.zeros(U.shape)
 #F[Nx/2::,:,0,2] = (energyFunc(pR,gamma,rhoR,vR) + pR)*vR
 
 
-## Left state
-U[:,0:Nx/2,0,0] = rhoL
-U[:,0:Nx/2,0,1] = rhoL*vL
-U[:,0:Nx/2,0,2] = energyFunc(pL,gamma,rhoL,vL)
+### Left state
+#U[:,0:Nx/2,0,0] = rhoL
+#U[:,0:Nx/2,0,1] = rhoL*vL
+#U[:,0:Nx/2,0,2] = energyFunc(pL,gamma,rhoL,vL)
 
-F[:,0:Nx/2,0,0] = rhoL*vL
-F[:,0:Nx/2,0,1] = rhoL*vL**2 + pL
-F[:,0:Nx/2,0,2] = (energyFunc(pL,gamma,rhoL,vL) + pL)*vL
+#F[:,0:Nx/2,0,0] = rhoL*vL
+#F[:,0:Nx/2,0,1] = rhoL*vL**2 + pL
+#F[:,0:Nx/2,0,2] = (energyFunc(pL,gamma,rhoL,vL) + pL)*vL
 
-## Right State
-U[:,Nx/2:,0,0] = rhoR
-U[:,Nx/2:,0,1] = rhoR*vR
-U[:,Nx/2:,0,2] = energyFunc(pR,gamma,rhoR,vR)
+### Right State
+#U[:,Nx/2:,0,0] = rhoR
+#U[:,Nx/2:,0,1] = rhoR*vR
+#U[:,Nx/2:,0,2] = energyFunc(pR,gamma,rhoR,vR)
 
-F[:,Nx/2:,0,0] = rhoR*vR
-F[:,Nx/2:,0,1] = rhoR*vR**2 + pR
-F[:,Nx/2:,0,2] = (energyFunc(pR,gamma,rhoR,vR) + pR)*vR
+#F[:,Nx/2:,0,0] = rhoR*vR
+#F[:,Nx/2:,0,1] = rhoR*vR**2 + pR
+#F[:,Nx/2:,0,2] = (energyFunc(pR,gamma,rhoR,vR) + pR)*vR
 
 ## Up
 #for i in range(3,Nx-3):
@@ -238,6 +240,12 @@ F[:,Nx/2:,0,2] = (energyFunc(pR,gamma,rhoR,vR) + pR)*vR
 #	F[Nx-i,i,0,1] = rho0/2.*v0**2 + p0
 #	F[i,i,0,2] = (energyFunc(p0,gamma,rho0/2.,v0) + p0)*v0
 #	F[Nx-i,i,0,2] = (energyFunc(p0,gamma,rho0/2.,v0) + p0)*v0
+
+U, F = initialConds.sod1D(U,F,gamma, rhoL,pL,vL, rhoR,pR,vR)
+
+
+U, F = initialConds.bessel(U,F,xPoints,gamma ,1.0,1.0,1.0)
+
 U1 = U.copy() # Need to maintain BCS for U1 and U2 as well
 U2 = U.copy()
 F1 = F.copy()
@@ -275,25 +283,25 @@ for n in range(Nt-1):
 #	F[:,-2::,n+1,:] = F[:,-2::,0,:]
 
 	# Try Outflow BCS
-	U[0,:,n+1,:]  = U[3,:,n+1,:]
-	F[0,:,n+1,:]  = F[3,:,n+1,:]
-	U[-2,:,n+1,:] = U[-3,:,n+1,:]
-	F[-2,:,n+1,:] = F[-3,:,n+1,:]
-	
-	U[:,0,n+1,:]  = U[:,3,n+1,:]
-	F[:,0,n+1,:]  = F[:,3,n+1,:]
-	U[:,-2,n+1,:] = U[:,-3,n+1,:]
-	F[:,-2,n+1,:] = F[:,-3,n+1,:]
-	
-	U[1,:,n+1,:]  = U[3,:,n+1,:]
-	F[1,:,n+1,:]  = F[3,:,n+1,:]
+	U[0,:,n+1,:]  = U[2,:,n+1,:]
+	F[0,:,n+1,:]  = F[2,:,n+1,:]
 	U[-1,:,n+1,:] = U[-3,:,n+1,:]
 	F[-1,:,n+1,:] = F[-3,:,n+1,:]
 	
-	U[:,1,n+1,:]  = U[:,3,n+1,:]
-	F[:,1,n+1,:]  = F[:,3,n+1,:]
+	U[:,0,n+1,:]  = U[:,2,n+1,:]
+	F[:,0,n+1,:]  = F[:,2,n+1,:]
 	U[:,-1,n+1,:] = U[:,-3,n+1,:]
 	F[:,-1,n+1,:] = F[:,-3,n+1,:]
+	
+	U[1,:,n+1,:]  = U[2,:,n+1,:]
+	F[1,:,n+1,:]  = F[2,:,n+1,:]
+	U[-2,:,n+1,:] = U[-3,:,n+1,:]
+	F[-2,:,n+1,:] = F[-3,:,n+1,:]
+	
+	U[:,1,n+1,:]  = U[:,2,n+1,:]
+	F[:,1,n+1,:]  = F[:,2,n+1,:]
+	U[:,-2,n+1,:] = U[:,-3,n+1,:]
+	F[:,-2,n+1,:] = F[:,-3,n+1,:]
 	F = fluxUpdate(U,F,n)
 	U1 = U.copy()
 	U2 = U.copy()
@@ -314,8 +322,8 @@ X, Y = np.meshgrid(xPoints, yPoints)
 
 surf = ax.plot_surface(X[2:-2,2:-2],Y[2:-2,2:-2],F[2:-2,2:-2,0,0], rstride=1, cstride=1,cmap=cm.coolwarm) #plots 
 
-print 'Final Density'
-print U[:,:,-1,0]
+#print 'Final Density'
+#print U[:,:,-1,0]
 #plt.title('Final Density Profile', fontsize = 24)
 plt.xlabel('X Position' , fontsize = 18)
 plt.ylabel('Y Position', fontsize =18)
@@ -329,7 +337,7 @@ ax.view_init(elev=10., azim=60)
 
 def animate(i):
 	ax.clear() # Seems necessary to prevent data overlapping between frames
-	ax.plot_surface(X[:,:],Y[:,:],U[:,:,i,0], rstride=1, cstride=1,cmap=cm.coolwarm)   # update the data
+	ax.plot_surface(X[:,:],Y[:,:],U[:,:,i,2], rstride=1, cstride=1,cmap=cm.coolwarm)   # update the data
 	ax.set_zlim([rhoR, rhoL])
 	return surf,
 
