@@ -37,7 +37,7 @@ def FHLLFunc(U,F,n):
 	p = F[:,:,n,1] - U[:,:,n,1]**2 / U[:,:,n,0]
 	lambdaPlusL , lambdaMinusL ,lambdaPlusR ,lambdaMinusR ,lambdaPlusD, lambdaMinusD, lambdaPlusU, lambdaMinusU = lambdaFunc(v,gamma,p,rho)
 	alphaPlusH ,alphaMinusH, alphaPlusV, alphaMinusV = alphaFunc(lambdaPlusL,lambdaMinusL,lambdaPlusR,lambdaMinusR,lambdaPlusD,lambdaMinusD,lambdaPlusU,lambdaMinusU)
-
+	print alphaPlusH.shape, alphaPlusV.shape
 	lefts, rights, downs, ups = interpolate(v,gamma,p,rho)
 	FHLLH = np.zeros([Nx-3,Ny,Nt,3])
 
@@ -150,19 +150,19 @@ def interpolate(v,gamma,p,rho):
 
 ## COMPUTATION PARAMETERS
 tMin    = 0.
-tMax    = 0.2
+tMax    = 1.0
 Nt      = 200
 dt      = (tMax-tMin)/Nt
 tPoints = np.linspace(tMin,tMax,Nt)
 
-xMin    = 0.
-xMax    = 1.
-Nx      = 5
+xMin    = -0.5
+xMax    =  0.5
+Nx      = 30
 dx      = (xMax - xMin)/Nx
 
 yMin    = 0.
 yMax    = 1.
-Ny      = 5
+Ny      = 30
 dy      = (yMax - yMin)/Ny
 
 
@@ -241,9 +241,7 @@ U2 = np.zeros(U.shape)
 #	F[i,i,0,2] = (energyFunc(p0,gamma,rho0/2.,v0) + p0)*v0
 #	F[Nx-i,i,0,2] = (energyFunc(p0,gamma,rho0/2.,v0) + p0)*v0
 
-U, F = initialConds.sod1D(U,F,gamma, rhoL,pL,vL, rhoR,pR,vR)
-
-
+#U, F = initialConds.sod1D(U,F,gamma, rhoL,pL,vL, rhoR,pR,vR)
 U, F = initialConds.bessel(U,F,xPoints,gamma ,1.0,1.0,1.0)
 
 U1 = U.copy() # Need to maintain BCS for U1 and U2 as well
@@ -272,36 +270,36 @@ for n in range(Nt-1):
 	F = fluxUpdate(U,F,n)
 	#print U[:,:,n,0]
 #	# Reinforce BCS (return ghost cells to initial conditions) (Need two ghost cells on each side for 2nd order spatial)
-#	U[0:2,:,n+1,:]  = U[0:2,:,0,:]
-#	F[0:2,:,n+1,:]  = F[0:2,:,0,:]
-#	U[-2::,:,n+1,:] = U[-2::,:,0,:]
-#	F[-2::,:,n+1,:] = F[-2::,:,0,:]
-#	
-#	U[:,0:2,n+1,:]  = U[:,0:2,0,:]
-#	F[:,0:2,n+1,:]  = F[:,0:2,0,:]
-#	U[:,-2::,n+1,:] = U[:,-2::,0,:]
-#	F[:,-2::,n+1,:] = F[:,-2::,0,:]
+	U[0:2,:,n+1,:]  = U[0:2,:,0,:]
+	F[0:2,:,n+1,:]  = F[0:2,:,0,:]
+	U[-2::,:,n+1,:] = U[-2::,:,0,:]
+	F[-2::,:,n+1,:] = F[-2::,:,0,:]
+	
+	U[:,0:2,n+1,:]  = U[:,0:2,0,:]
+	F[:,0:2,n+1,:]  = F[:,0:2,0,:]
+	U[:,-2::,n+1,:] = U[:,-2::,0,:]
+	F[:,-2::,n+1,:] = F[:,-2::,0,:]
 
 	# Try Outflow BCS
-	U[0,:,n+1,:]  = U[2,:,n+1,:]
-	F[0,:,n+1,:]  = F[2,:,n+1,:]
-	U[-1,:,n+1,:] = U[-3,:,n+1,:]
-	F[-1,:,n+1,:] = F[-3,:,n+1,:]
+	#U[0,:,n+1,:]  = U[2,:,n+1,:]
+	#F[0,:,n+1,:]  = F[2,:,n+1,:]
+	#U[-1,:,n+1,:] = U[-3,:,n+1,:]
+	#F[-1,:,n+1,:] = F[-3,:,n+1,:]
 	
-	U[:,0,n+1,:]  = U[:,2,n+1,:]
-	F[:,0,n+1,:]  = F[:,2,n+1,:]
-	U[:,-1,n+1,:] = U[:,-3,n+1,:]
-	F[:,-1,n+1,:] = F[:,-3,n+1,:]
+	#U[:,0,n+1,:]  = U[:,2,n+1,:]
+	#F[:,0,n+1,:]  = F[:,2,n+1,:]
+	#U[:,-1,n+1,:] = U[:,-3,n+1,:]
+	#F[:,-1,n+1,:] = F[:,-3,n+1,:]
 	
-	U[1,:,n+1,:]  = U[2,:,n+1,:]
-	F[1,:,n+1,:]  = F[2,:,n+1,:]
-	U[-2,:,n+1,:] = U[-3,:,n+1,:]
-	F[-2,:,n+1,:] = F[-3,:,n+1,:]
+	#U[1,:,n+1,:]  = U[2,:,n+1,:]
+	#F[1,:,n+1,:]  = F[2,:,n+1,:]
+	#U[-2,:,n+1,:] = U[-3,:,n+1,:]
+	#F[-2,:,n+1,:] = F[-3,:,n+1,:]
 	
-	U[:,1,n+1,:]  = U[:,2,n+1,:]
-	F[:,1,n+1,:]  = F[:,2,n+1,:]
-	U[:,-2,n+1,:] = U[:,-3,n+1,:]
-	F[:,-2,n+1,:] = F[:,-3,n+1,:]
+	#U[:,1,n+1,:]  = U[:,2,n+1,:]
+	#F[:,1,n+1,:]  = F[:,2,n+1,:]
+	#U[:,-2,n+1,:] = U[:,-3,n+1,:]
+	#F[:,-2,n+1,:] = F[:,-3,n+1,:]
 	F = fluxUpdate(U,F,n)
 	U1 = U.copy()
 	U2 = U.copy()
@@ -320,7 +318,7 @@ ax = fig.gca(projection='3d')
 X, Y = np.meshgrid(xPoints, yPoints)
 
 
-surf = ax.plot_surface(X[2:-2,2:-2],Y[2:-2,2:-2],F[2:-2,2:-2,0,0], rstride=1, cstride=1,cmap=cm.coolwarm) #plots 
+surf = ax.plot_surface(X[:,:],Y[:,:],U[:,:,-1,2], rstride=1, cstride=1,cmap=cm.coolwarm) #plots 
 
 #print 'Final Density'
 #print U[:,:,-1,0]
@@ -330,7 +328,7 @@ plt.ylabel('Y Position', fontsize =18)
 plt.tick_params(labelsize=14)
 plt.ylim([yMin ,yMax])
 plt.xlim([xMin ,xMax])
-ax.set_zlim([rhoR, rhoL])
+#ax.set_zlim([rhoR, rhoL])
 #plt.legend(loc = 'center')
 ax.view_init(elev=10., azim=60)
 
@@ -338,7 +336,7 @@ ax.view_init(elev=10., azim=60)
 def animate(i):
 	ax.clear() # Seems necessary to prevent data overlapping between frames
 	ax.plot_surface(X[:,:],Y[:,:],U[:,:,i,2], rstride=1, cstride=1,cmap=cm.coolwarm)   # update the data
-	ax.set_zlim([rhoR, rhoL])
+	#ax.set_zlim([rhoR, rhoL])
 	return surf,
 
 
@@ -347,10 +345,10 @@ def init():
 	ax.plot_surface([],[],[], rstride=5, cstride=5,cmap=cm.coolwarm)  
 	return surf,
 
-ani = animation.FuncAnimation(fig, animate, np.arange(1,Nt,1),  interval=25, blit=False)
+ani = animation.FuncAnimation(fig, animate, np.arange(1,Nt,2),  interval=25, blit=False)
 
 
-ani.save('my_animation.mp4')                           
+#ani.save('my_animation.mp4')                           
 plt.show()
 
 

@@ -47,6 +47,6 @@ def bessel(U,F,xPoints,gamma,rho,p,v):
 	F[1,:,0,1] = rho*v**2 + pBound
 	F[1,:,0,2] = (energyFunc(pBound,gamma,rho,v) + pBound)*v
 	
-	plt.plot(U[0,:,0,2])
-	plt.show()
+	#plt.plot(U[0,:,0,2])
+	#plt.show()
 	return U, F
