@@ -95,6 +95,39 @@ def kelvHelm2(U,F,xPoints,yPoints,gamma,p0,rho0,w0,a,n,vy):
 	#plt.show()
 	return U, F
 	
+def implosion(U,F,xPoints,yPoints,gamma,p1,p2,rho1,rho2,vx1,vx2,vy1,vy2):
+	# Determine conditions above and below diagonal, helps test symmetry about x=y 
+	L = xPoints[-1]-xPoints[0] # Assume square zone
+	Nx = len(xPoints)
+	Ny = len(yPoints)
+	rho = np.zeros([Ny,Nx])
+	p   = np.zeros([Ny,Nx])
+	vx  = np.zeros([Ny,Nx])
+	vy  = np.zeros([Ny,Nx])
+	
+	for i in range(Nx):
+		for k in range(Ny):
+			if xPoints[i]+yPoints[k] > L/2.:
+				rho[k,i] = rho1
+				p  [k,i] = p1
+				vx [k,i] = vx1
+				vy [k,i] = vy1
+			else:
+				rho[k,i] = rho2
+				p  [k,i] = p2
+				vx [k,i] = vx2
+				vy [k,i] = vy2
+	U[:,:,0] = rho
+	U[:,:,1] = rho * vx
+	U[:,:,2] = rho * vy
+	U[:,:,3] = energyFunc(p,gamma,rho,vx,vy)
+	
+	F[:,:,0] = rho * vx
+	F[:,:,1] = rho * vx**2 + p
+	F[:,:,2] = rho * vx* vy
+	F[:,:,3] = (energyFunc(p,gamma,rho,vx,vy) + p) *vx
+	return U, F
+	
 def bessel(U,F,xPoints,gamma,rho,p,v):
 	pBound = np.abs(ss.j0(10*xPoints))# Pressure at a boundary due to Bessel beam
 	

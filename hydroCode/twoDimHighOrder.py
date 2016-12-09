@@ -8,8 +8,7 @@ import matplotlib.animation as animation
 import initialConds
 import boundaryConds
 
-showAnim = 1 
-saveAnim = 1
+
 # These are the "Tableau 20" colors as RGB.    
 tableau20 = [(31, 119, 180), (174, 199, 232), (255, 127, 14), (255, 187, 120),    
              (44, 160, 44), (152, 223, 138), (214, 39, 40), (255, 152, 150),    
@@ -27,7 +26,9 @@ def LFunc(U,F,dx,dy):
 	FHLLH ,FHLLV, maxAlphaH, maxAlphaV = FHLLFunc(U,F) 
 
 	#print FHLL[:,n,0]
-	dt = CFL*(dx)/max(maxAlphaH,maxAlphaV)
+	#dt = CFL*(dx)/max(maxAlphaH,maxAlphaV)
+	dt = CFL*(maxAlphaH/dx + maxAlphaV/dy)**(-1)
+	#print maxAlphaH,maxAlphaV
 	L = -(1/dx) * (FHLLH[1::,2:-2,:] - FHLLH[0:-1,2:-2,:]) - (1/dy) * (FHLLV[2:-2,1::,:] - FHLLV[2:-2,0:-1,:])
 	return L, dt
 	
@@ -38,6 +39,7 @@ def FHLLFunc(U,F):
 	vx = U[:,:,1]/U[:,:,0]
 	vy = U[:,:,2]/U[:,:,0]
 	p = F[:,:,1] - U[:,:,1]**2 / U[:,:,0]
+	#print p.min()
 	lambdaPlusL , lambdaMinusL ,lambdaPlusR ,lambdaMinusR ,lambdaPlusD, lambdaMinusD, lambdaPlusU, lambdaMinusU = lambdaFunc(vx,vy,gamma,p,rho)
 	alphaPlusH ,alphaMinusH, alphaPlusV, alphaMinusV = alphaFunc(lambdaPlusL,lambdaMinusL,lambdaPlusR,lambdaMinusR,lambdaPlusD,lambdaMinusD,lambdaPlusU,lambdaMinusU)
 	maxAlphaH = max(alphaMinusH.max(),alphaPlusH.max())
@@ -69,7 +71,7 @@ def FHLLFunc(U,F):
 	GD = np.zeros([Nx,Ny-3,4])
 	GU = np.zeros([Nx,Ny-3,4])
 	ED = downs[:,:,0]/(gamma-1) + 0.5* downs[:,:,1]*(downs[:,:,2]**2+downs[:,:,3]**2) # energy (used multiple times)
-	EU = downs[:,:,0]/(gamma-1) + 0.5* ups[:,:,1]*(ups[:,:,2]**2 +ups[:,:,3]**2)
+	EU = ups[:,:,0]/(gamma-1) + 0.5* ups[:,:,1]*(ups[:,:,2]**2 +ups[:,:,3]**2)
 	UD[:,:,0], UU[:,:,0] = downs[:,:,1], ups[:,:,1]
 	UD[:,:,1], UU[:,:,1] = downs[:,:,1]*downs[:,:,2] , ups[:,:,1]*ups[:,:,2]
 	UD[:,:,2], UU[:,:,2] = downs[:,:,1]*downs[:,:,3] , ups[:,:,1]*ups[:,:,3]
@@ -91,7 +93,7 @@ def lambdaFunc(vx,vy,gamma,p,rho):
 	# rho[:,:] at all positions
 
 	lefts, rights, downs, ups  = interpolate(vx,vy,gamma,p,rho)
-	
+	#print rho[3,3]
 	soundL = np.sqrt(gamma*lefts[:,:,0]/lefts[:,:,1])
 	soundR = np.sqrt(gamma*rights[:,:,0]/rights[:,:,1])
 	lambdaPlusL  = lefts[:,:,2] + soundL
@@ -105,7 +107,7 @@ def lambdaFunc(vx,vy,gamma,p,rho):
 	lambdaMinusD = downs[:,:,2] - soundD
 	lambdaPlusU  = ups[:,:,2] + soundU
 	lambdaMinusU = ups[:,:,2] - soundU
-	
+
 	return lambdaPlusL, lambdaMinusL, lambdaPlusR, lambdaMinusR, lambdaPlusD, lambdaMinusD, lambdaPlusU, lambdaMinusU
 	
 def alphaFunc(lambdaPlusL,lambdaMinusL,lambdaPlusR,lambdaMinusR,lambdaPlusD,lambdaMinusD,lambdaPlusU,lambdaMinusU):
@@ -133,7 +135,7 @@ def fluxUpdate(Unew,Fold):
 	newVy   = newRhoVy/newRho
 	newE    = Unew[:,:,3]
 	newP    = (gamma-1) * (newE - 0.5*newRho*(newVx**2+newVy**2))
-	
+	#print newE.min()
 	Fnew[:,:,0] = newRho*newVx
 	Fnew[:,:,1] = newRho*newVx**2 + newP
 	Fnew[:,:,2] = newRho*newVx*newVy
@@ -143,6 +145,7 @@ def fluxUpdate(Unew,Fold):
 	
 def minmod(x,y,z):
 	# Minmod function
+	#print np.amax(np.minimum.reduce([np.fabs(x),np.fabs(y),np.fabs(z)]))
 	return 0.25*np.fabs(np.sign(x) + np.sign(y))*(np.sign(x) + np.sign(z)) * np.minimum.reduce([np.fabs(x),np.fabs(y),np.fabs(z)])
 	
 def interpolate(vx,vy,gamma,p,rho):
@@ -153,33 +156,33 @@ def interpolate(vx,vy,gamma,p,rho):
 	cs[:,:,1] = rho
 	cs[:,:,2] = vx 
 	cs[:,:,3] = vy
-	
+	#print cs[:,:,0].min()
 	lefts  = cs[1:-2,:,:] + 0.5* minmod(theta*(cs[1:-2,:,:] - cs[0:-3,:,:]) , 0.5*(cs[2:-1,:,:] - cs[0:-3,:,:]) , theta*(cs[2:-1,:,:] - cs[1:-2,:,:]))
 	rights = cs[2:-1,:,:] - 0.5* minmod(theta*(cs[2:-1,:,:] - cs[1:-2,:,:]) , 0.5*(cs[3::,:,:] - cs[1:-2,:,:]) , theta*(cs[3::,:,:] - cs[2:-1,:,:]))
 	
 	
 	downs  = cs[:,1:-2,:] + 0.5* minmod(theta*(cs[:,1:-2,:] - cs[:,0:-3,:]) , 0.5*(cs[:,2:-1,:] - cs[:,0:-3,:]) , theta*(cs[:,2:-1,:] - cs[:,1:-2,:]))
 	ups    = cs[:,2:-1,:] - 0.5* minmod(theta*(cs[:,2:-1,:] - cs[:,1:-2,:]) , 0.5*(cs[:,3::,:] - cs[:,1:-2,:]) , theta*(cs[:,3::,:] - cs[:,2:-1,:]))
-	#print downs[:,:,1]
+	#print np.isnan(ups).max()
 	return lefts, rights, downs, ups
 
 ## COMPUTATION PARAMETERS
 tMin    = 0.
-tMax    = 3.0
+tMax    = 1.0
 #Nt      = 500
 #dt      = (tMax-tMin)/Nt
 #tPoints = np.linspace(tMin,tMax,Nt)
 
-CFL = 0.05
+CFL = 0.5
 
 xMin    = 0.
 xMax    =  1.
-Nx      = 32
+Nx      = 128
 dx      = (xMax - xMin)/Nx
 
 yMin    = 0.
 yMax    = 1.
-Ny      = 32
+Ny      = 128
 dy      = (yMax - yMin)/Ny
 
 
@@ -209,9 +212,9 @@ U2 = np.zeros(U.shape)
 
 #U, F = initialConds.sod1D(U,F,gamma, rhoL,pL,vxL,vyL, rhoR,pR,vxR,vyR)
 #U, F = initialConds.bessel(U,F,xPoints,gamma ,1.0,1.0,1.0)
-U,F =   initialConds.kelvHelm(U,F,xPoints,yPoints,gamma,2.5,1.0,2.0,-0.6,0.6,0.035,5*10**(-2))
+U,F =   initialConds.kelvHelm(U,F,xPoints,yPoints,gamma,2.5,1.0,2.0,-0.5,0.5,0.035,9*10**(-2))
 #U,F = initialConds.kelvHelm2(U,F,xPoints,yPoints,gamma,1.0,1.0,10**(-2),10**(-1),2,0.1)
-
+#U, F = initialConds.implosion(U,F,xPoints,yPoints,gamma, 1.0, 0.140, 1.0, 0.125, 0.0, 0.0, 0.0 ,0.0)
 IU, IF = U.copy(),F.copy()
 U1 = U.copy() # Need to maintain BCS for U1 and U2 as well
 U2 = U.copy()
@@ -225,28 +228,29 @@ t = tMin
 UWhole = np.zeros([Nx,Ny,4,1])
 while t < tMax:
 	count +=1 
-	
+	#print U[3,3,0]
 	UWhole = np.concatenate((UWhole,np.expand_dims(U,axis=3)),axis=3)
-
+	#F = fluxUpdate(U,F)
 	#RK3 Updating
-	
-	#U[2:-2,2:-2,n+1,:]  = U[2:-2,2:-2,n,:] + dt*LFunc(U,F,dx,dy,n) # FIRST ORDER TIME TO TEST OTHER STUFF
 	L, dt = LFunc(U,F,dx,dy)
-	U1[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L
-	#t += dt
-	F1 = fluxUpdate(U1,F)
+	U[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L # FIRST ORDER TIME TO TEST OTHER STUFF
 	
-	L1, dt1 = LFunc(U1,F1,dx,dy)
-	U2[2:-2,2:-2,:]  = (3./4.)*U[2:-2,2:-2,:] + (1./4.)*U1[2:-2,2:-2,:] + (1./4.)*dt1*L1
-	#t += dt1
-	F2= fluxUpdate(U2,F1)
+	#U1[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L
+	##t += dt
+	#F1 = fluxUpdate(U1,F)
 	
-	L2, dt2 = LFunc(U2,F2,dx,dy)
-	U[2:-2,2:-2,:] = (1./3.)*U[2:-2,2:-2,:] + (2./3.)*U2[2:-2,2:-2,:] + (2./3.)*dt2*L2
+	#L1, dt1 = LFunc(U1,F1,dx,dy)
+	#U2[2:-2,2:-2,:]  = (3./4.)*U[2:-2,2:-2,:] + (1./4.)*U1[2:-2,2:-2,:] + (1./4.)*dt1*L1
+	##t += dt1
+	#F2= fluxUpdate(U2,F1)
+	
+	#L2, dt2 = LFunc(U2,F2,dx,dy)
+	#U[2:-2,2:-2,:] = (1./3.)*U[2:-2,2:-2,:] + (2./3.)*U2[2:-2,2:-2,:] + (2./3.)*dt2*L2
 	t += dt
+	#print dt#,dt1,dt2
 	# Update all fluxes based on this update
 	F = fluxUpdate(U,F)
-	#print t
+	
 	
 	#print U[:,:,n,0]
 ##	# Reinforce BCS (return ghost cells to initial conditions) (Need two ghost cells on each side for 2nd order spatial)
@@ -306,6 +310,7 @@ while t < tMax:
 	#F[-2,:,:] =(F[-3,:,:])#+F[:,2,:])/2.
 	U, F = boundaryConds.periodicRow(U,F,IU,IF)
 	#U, F = boundaryConds.fixed(U,F,IU,IF)
+#	U, F = boundaryConds.outflow(U,F,IU,IF)
 	F= fluxUpdate(U,F)
 	U1 = U.copy()
 	U2 = U.copy()
@@ -314,7 +319,7 @@ while t < tMax:
 	
 	if count % 50 == 0:
 		print (tMin+t)*100/(tMax-tMin), '% Done'
-		
+
 
 ## PLOTTING
 #fig = plt.figure()
