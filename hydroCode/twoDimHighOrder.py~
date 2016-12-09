@@ -6,6 +6,7 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import matplotlib.animation as animation
 import initialConds
+import boundaryConds
 
 showAnim = 1 
 saveAnim = 1
@@ -169,7 +170,7 @@ tMax    = 3.0
 #dt      = (tMax-tMin)/Nt
 #tPoints = np.linspace(tMin,tMax,Nt)
 
-CFL = 0.1
+CFL = 0.05
 
 xMin    = 0.
 xMax    =  1.
@@ -284,25 +285,27 @@ while t < tMax:
 #	F[:,-2,n+1,:] = F[:,-3,n+1,:]
 
 	# Try fixed BCS in x, periodic in y
-	U[:,0,:]  = IU[:,0,:]
-	F[:,0,:]  = IF[:,0,:]
-	U[:,-1,:] = IU[:,-1,:]
-	F[:,-1,:] = IF[:,-1,:]
+	#U[:,0,:]  = IU[:,0,:]
+	#F[:,0,:]  = IF[:,0,:]
+	#U[:,-1,:] = IU[:,-1,:]
+	#F[:,-1,:] = IF[:,-1,:]
 	
-	U[0,:,:]  = (U[-3,:,:])#+U[:,2,:])/2.
-	F[0,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
-	U[-1,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
-	F[-1,:,:] = (F[-3,:,:])#+F[:,2,:])/2.
+	#U[0,:,:]  = (U[-3,:,:])#+U[:,2,:])/2.
+	#F[0,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
+	#U[-1,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
+	#F[-1,:,:] = (F[-3,:,:])#+F[:,2,:])/2.
 	
-	U[:,1,:]  = IU[:,1,:]
-	F[:,1,:]  = IF[:,1,:]
-	U[:,-2,:] = IU[:,-2,:]
-	F[:,-2,:] = IF[:,-2,:]
+	#U[:,1,:]  = IU[:,1,:]
+	#F[:,1,:]  = IF[:,1,:]
+	#U[:,-2,:] = IU[:,-2,:]
+	#F[:,-2,:] = IF[:,-2,:]
 	
-	U[1,:,:]  =(U[-3,:,:])#+U[:,2,:])/2.
-	F[1,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
-	U[-2,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
-	F[-2,:,:] =(F[-3,:,:])#+F[:,2,:])/2.
+	#U[1,:,:]  =(U[-3,:,:])#+U[:,2,:])/2.
+	#F[1,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
+	#U[-2,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
+	#F[-2,:,:] =(F[-3,:,:])#+F[:,2,:])/2.
+	#U, F = boundaryConds.periodicRow(U,F,IU,IF)
+	U, F = boundaryConds.fixed(U,F,IU,IF)
 	F= fluxUpdate(U,F)
 	U1 = U.copy()
 	U2 = U.copy()
@@ -314,13 +317,19 @@ while t < tMax:
 		
 
 ## PLOTTING
-fig = plt.figure()
-ax = fig.gca()
+#fig = plt.figure()
+#ax = fig.gca()
+
+f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex='col', sharey='row')
 
 X, Y = np.meshgrid(xPoints, yPoints)
 
-#surf = plt.imshow(U[:,:,0]) #plots 
+Nt = len(UWhole[0,0,0,:]) # Total time steps taken
 
+ax1.imshow(UWhole[:,:,0,1]) #plots 
+ax2.imshow(UWhole[:,:,0,Nt/3]) 
+ax3.imshow(UWhole[:,:,0,2*Nt/3]) 
+ax4.imshow(UWhole[:,:,0,-1]) 
 
 #print 'Final Density'
 #print U[:,:,-1,0]
@@ -328,32 +337,38 @@ X, Y = np.meshgrid(xPoints, yPoints)
 plt.xlabel('X Position' , fontsize = 18)
 plt.ylabel('Y Position', fontsize =18)
 plt.tick_params(labelsize=14)
-plt.ylim([yMin ,yMax])
-plt.xlim([xMin ,xMax])
+ax1.set_ylim([0,Ny])
+ax1.set_xlim([0,Nx])
+ax2.set_ylim([0,Ny])
+ax2.set_xlim([0,Nx])
+ax3.set_ylim([0,Ny])
+ax3.set_xlim([0,Nx])
+ax4.set_ylim([0,Ny])
+ax4.set_xlim([0,Nx])
 #ax.set_zlim([rhoR, rhoL])
 #plt.legend(loc = 'center')
 #ax.view_init(elev=10., azim=60)
 
 
-def animate(i):
-	ax.clear()
-	surf = plt.imshow(UWhole[:,:,0,i] , origin = 'lower',interpolation ='bilinear')   # update the data
-	plt.xlabel('X Position' , fontsize = 18)
-	plt.ylabel('Y Position', fontsize =18)
-	#ax.clear() # Seems necessary to prevent data overlapping between frames
-	#ax.set_zlim([rhoR, rhoL])
+#def animate(i):
+#	ax.clear()
+#	surf = plt.imshow(UWhole[:,:,0,i] , origin = 'lower',interpolation ='bilinear')   # update the data
+#	plt.xlabel('X Position' , fontsize = 18)
+#	plt.ylabel('Y Position', fontsize =18)
+#	#ax.clear() # Seems necessary to prevent data overlapping between frames
+#	#ax.set_zlim([rhoR, rhoL])
 
-	return surf,
+#	return surf,
 
 
 ## Init only required for blitting to give a clean slate.
-def init():
-	ax.plot_surface([],[],[], rstride=5, cstride=5,cmap=cm.coolwarm)  
-	return surf,
+#def init():
+#	ax.plot_surface([],[],[], rstride=5, cstride=5,cmap=cm.coolwarm)  
+#	return surf,
 
-ani = animation.FuncAnimation(fig, animate, np.arange(1,len(UWhole[0,0,0,:]),3),  interval=25, blit=False)
+#ani = animation.FuncAnimation(fig, animate, np.arange(1,len(UWhole[0,0,0,:]),3),  interval=25, blit=False)
 
-ani.save('my_animation.mp4')                           
+#ani.save('my_animation.mp4')                           
 plt.show()
 
 
