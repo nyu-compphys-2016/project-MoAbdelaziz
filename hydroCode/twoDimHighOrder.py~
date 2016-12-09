@@ -21,26 +21,29 @@ for i in range(len(tableau20)):
     tableau20[i] = (r / 255., g / 255., b / 255.)
 ## FUNCTION DEFINITIONS
 
-def LFunc(U,F,dx,dy,n):
+def LFunc(U,F,dx,dy):
 	# Calculate L(U) given a U[:,:,n,0:2] for the conserved variable array at time n, all positions
-	FHLLH ,FHLLV= FHLLFunc(U,F,n) 
+	FHLLH ,FHLLV, maxAlphaH, maxAlphaV = FHLLFunc(U,F) 
 
 	#print FHLL[:,n,0]
-	L = -(1/dx) * (FHLLH[1::,2:-2,n,:] - FHLLH[0:-1,2:-2,n,:]) - (1/dy) * (FHLLV[2:-2,1::,n,:] - FHLLV[2:-2,0:-1,n,:])
-	return L
+	dt = CFL*(dx)/max(maxAlphaH,maxAlphaV)
+	L = -(1/dx) * (FHLLH[1::,2:-2,:] - FHLLH[0:-1,2:-2,:]) - (1/dy) * (FHLLV[2:-2,1::,:] - FHLLV[2:-2,0:-1,:])
+	return L, dt
 	
-def FHLLFunc(U,F,n):
+def FHLLFunc(U,F):
 	# Calculate HLL Flux as an array FHLLH[:,:,0:2] and FHLLV at all interfaces (3 less entries than cell centers for 2nd order space)
 	
-	rho = U[:,:,n,0]
-	vx = U[:,:,n,1]/U[:,:,n,0]
-	vy = U[:,:,n,2]/U[:,:,n,0]
-	p = F[:,:,n,1] - U[:,:,n,1]**2 / U[:,:,n,0]
+	rho = U[:,:,0]
+	vx = U[:,:,1]/U[:,:,0]
+	vy = U[:,:,2]/U[:,:,0]
+	p = F[:,:,1] - U[:,:,1]**2 / U[:,:,0]
 	lambdaPlusL , lambdaMinusL ,lambdaPlusR ,lambdaMinusR ,lambdaPlusD, lambdaMinusD, lambdaPlusU, lambdaMinusU = lambdaFunc(vx,vy,gamma,p,rho)
 	alphaPlusH ,alphaMinusH, alphaPlusV, alphaMinusV = alphaFunc(lambdaPlusL,lambdaMinusL,lambdaPlusR,lambdaMinusR,lambdaPlusD,lambdaMinusD,lambdaPlusU,lambdaMinusU)
-
+	maxAlphaH = max(alphaMinusH.max(),alphaPlusH.max())
+	maxAlphaV = max(alphaMinusV.max(),alphaPlusV.max())
+	#maxAlpha = max(maxAlphaH,maxAlphaV)
 	lefts, rights, downs, ups = interpolate(vx,vy,gamma,p,rho)
-	FHLLH = np.zeros([Nx-3,Ny,Nt,4])
+	FHLLH = np.zeros([Nx-3,Ny,4])
 
 	UL = np.zeros([Nx-3,Ny,4])
 	UR = np.zeros([Nx-3,Ny,4])
@@ -57,9 +60,9 @@ def FHLLFunc(U,F,n):
 	FL[:,:,2], FR[:,:,2] =  lefts[:,:,1]*lefts[:,:,2]*lefts[:,:,3] , rights[:,:,1]*rights[:,:,2]*rights[:,:,3]
 	FL[:,:,3], FR[:,:,3] = (EL + lefts[:,:,0])*lefts[:,:,2] , (ER + rights[:,:,0])*rights[:,:,2]
 
-	FHLLH[:,:,n,:] = (alphaPlusH[:,:,None]*FL[:,:,:] + alphaMinusH[:,:,None]*FR[:,:,:] - alphaPlusH[:,:,None]*alphaMinusH[:,:,None] *(UR[:,:,:]- UL[:,:,:]))/(alphaPlusH[:,:,None] + alphaMinusH[:,:,None])
+	FHLLH[:,:,:] = (alphaPlusH[:,:,None]*FL[:,:,:] + alphaMinusH[:,:,None]*FR[:,:,:] - alphaPlusH[:,:,None]*alphaMinusH[:,:,None] *(UR[:,:,:]- UL[:,:,:]))/(alphaPlusH[:,:,None] + alphaMinusH[:,:,None])
 
-	FHLLV = np.zeros([Nx,Ny-3,Nt,4])
+	FHLLV = np.zeros([Nx,Ny-3,4])
 	UD = np.zeros([Nx,Ny-3,4])
 	UU = np.zeros([Nx,Ny-3,4])
 	GD = np.zeros([Nx,Ny-3,4])
@@ -75,9 +78,9 @@ def FHLLFunc(U,F,n):
 	GD[:,:,2], GU[:,:,2] = downs[:,:,1]*downs[:,:,3]**2 + downs[:,:,0] , ups[:,:,1]*ups[:,:,3]**2 + ups[:,:,0]
 	GD[:,:,3], GU[:,:,3] = (ED + downs[:,:,0])*downs[:,:,3] , (EU + ups[:,:,0])*ups[:,:,3]
 	
-	FHLLV[:,:,n,:] = (alphaPlusV[:,:,None]*GD[:,:,:] + alphaMinusV[:,:,None]*GU[:,:,:] - alphaPlusV[:,:,None]*alphaMinusV[:,:,None] *(UU[:,:,:]- UD[:,:,:]))/(alphaPlusV[:,:,None] + alphaMinusV[:,:,None])
+	FHLLV[:,:,:] = (alphaPlusV[:,:,None]*GD[:,:,:] + alphaMinusV[:,:,None]*GU[:,:,:] - alphaPlusV[:,:,None]*alphaMinusV[:,:,None] *(UU[:,:,:]- UD[:,:,:]))/(alphaPlusV[:,:,None] + alphaMinusV[:,:,None])
 	
-	return FHLLH, FHLLV
+	return FHLLH, FHLLV, maxAlphaH, maxAlphaV
 	
 def lambdaFunc(vx,vy,gamma,p,rho):
 	# Calculate lambda as an array at all positions lambdas[:,:] at some time 
@@ -94,7 +97,7 @@ def lambdaFunc(vx,vy,gamma,p,rho):
 	lambdaMinusL = lefts[:,:,2] - soundL
 	lambdaPlusR  = rights[:,:,2] + soundR
 	lambdaMinusR = rights[:,:,2] - soundR
-	
+
 	soundD = np.sqrt(gamma*downs[:,:,0]/downs[:,:,1])
 	soundU = np.sqrt(gamma*ups[:,:,0]/ups[:,:,1])
 	lambdaPlusD  = downs[:,:,2] + soundD
@@ -120,22 +123,22 @@ def energyFunc(p,gamma,rho,vx,vy):
 	# Calculate energy in terms of p, gamma, rho, v
 	return p/(gamma-1) + 0.5* rho*(vx*vx+vy*vy)
 
-def fluxUpdate(U,F,n):
+def fluxUpdate(Unew,Fold):
 	# Calculate updated values of F and G based on a new U
-	newRho  = U[:,:,n+1,0]
-	newRhoVx = U[:,:,n+1,1]
-	newRhoVy = U[:,:,n+1,2]
+	newRho  = Unew[:,:,0]
+	newRhoVx = Unew[:,:,1]
+	newRhoVy = Unew[:,:,2]
 	newVx    = newRhoVx/newRho
 	newVy   = newRhoVy/newRho
-	newE    = U[:,:,n+1,3]
+	newE    = Unew[:,:,3]
 	newP    = (gamma-1) * (newE - 0.5*newRho*(newVx**2+newVy**2))
 	
-	F[:,:,n+1,0] = newRho*newVx
-	F[:,:,n+1,1] = newRho*newVx**2 + newP
-	F[:,:,n+1,2] = newRho*newVx*newVy
-	F[:,:,n+1,3] = (newE+newP)*newVx
+	Fnew[:,:,0] = newRho*newVx
+	Fnew[:,:,1] = newRho*newVx**2 + newP
+	Fnew[:,:,2] = newRho*newVx*newVy
+	Fnew[:,:,3] = (newE+newP)*newVx
 	
-	return F
+	return Fnew
 	
 def minmod(x,y,z):
 	# Minmod function
@@ -161,21 +164,21 @@ def interpolate(vx,vy,gamma,p,rho):
 
 ## COMPUTATION PARAMETERS
 tMin    = 0.
-tMax    = 1.0
-Nt      = 500
-dt      = (tMax-tMin)/Nt
-tPoints = np.linspace(tMin,tMax,Nt)
+tMax    = 3.0
+#Nt      = 500
+#dt      = (tMax-tMin)/Nt
+#tPoints = np.linspace(tMin,tMax,Nt)
 
-#CFL = 1.0
+CFL = 0.1
 
 xMin    = 0.
 xMax    =  1.
-Nx      = 64
+Nx      = 32
 dx      = (xMax - xMin)/Nx
 
 yMin    = 0.
 yMax    = 1.
-Ny      = 64
+Ny      = 32
 dy      = (yMax - yMin)/Ny
 
 
@@ -196,43 +199,54 @@ pR   = 0.125
 rhoR = 0.1
 vxR   = 0.0
 vyR = 0.0
-U = np.zeros([Nx,Ny,Nt,4])
-F = np.zeros([Nx,Ny,Nt,4])
+U = np.zeros([Nx,Ny,4])
+F = np.zeros([Nx,Ny,4])
 
-FHLL = np.zeros([Nx-3,Ny-3,Nt,4]) #N-3 interfaces for N cells with 2 ghost cells on each end
+FHLL = np.zeros([Nx-3,Ny-3,4]) #N-3 interfaces for N cells with 2 ghost cells on each end
 U1 = np.zeros(U.shape)
 U2 = np.zeros(U.shape)
 
 #U, F = initialConds.sod1D(U,F,gamma, rhoL,pL,vxL,vyL, rhoR,pR,vxR,vyR)
 #U, F = initialConds.bessel(U,F,xPoints,gamma ,1.0,1.0,1.0)
-#U,F =   initialConds.kelvHelm(U,F,xPoints,yPoints,gamma,2.5,1.0,2.0,-0.5,0.5,0.035,10**(-1))
-U,F = initialConds.kelvHelm2(U,F,xPoints,yPoints,gamma,1.0,1.0,10**(-2),10**(-1),2)
+U,F =   initialConds.kelvHelm(U,F,xPoints,yPoints,gamma,2.5,1.0,2.0,-0.6,0.6,0.035,5*10**(-2))
+#U,F = initialConds.kelvHelm2(U,F,xPoints,yPoints,gamma,1.0,1.0,10**(-2),10**(-1),2,0.1)
 
+IU, IF = U.copy(),F.copy()
 U1 = U.copy() # Need to maintain BCS for U1 and U2 as well
 U2 = U.copy()
 F1 = F.copy()
 F2 = F.copy()
-
+Fnew = F.copy()
 
 ## MAIN LOOP
 count = 0 # Track loop number
-for n in range(Nt-1):
+t = tMin
+UWhole = np.zeros([Nx,Ny,4,1])
+while t < tMax:
 	count +=1 
+	
+	UWhole = np.concatenate((UWhole,np.expand_dims(U,axis=3)),axis=3)
 
 	#RK3 Updating
 	
 	#U[2:-2,2:-2,n+1,:]  = U[2:-2,2:-2,n,:] + dt*LFunc(U,F,dx,dy,n) # FIRST ORDER TIME TO TEST OTHER STUFF
+	L, dt = LFunc(U,F,dx,dy)
+	U1[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L
+	#t += dt
+	F1 = fluxUpdate(U1,F)
 	
-	U1[2:-2,2:-2,n,:]  = U[2:-2,2:-2,n,:] + dt*LFunc(U,F,dx,dy,n)
-
-	F1 = fluxUpdate(U1,F,n-1)
-
-	U2[2:-2,2:-2,n,:]  = (3./4.)*U[2:-2,2:-2,n,:] + (1./4.)*U1[2:-2,2:-2,n,:] + (1./4.)*dt*LFunc(U1,F1,dx,dy,n)
-	F2= fluxUpdate(U2,F1,n-1)
-
-	U[2:-2,2:-2,n+1,:] = (1./3.)*U[2:-2,2:-2,n,:] + (2./3.)*U2[2:-2,2:-2,n,:] + (2./3.)*dt*LFunc(U2,F2,dx,dy,n)
+	L1, dt1 = LFunc(U1,F1,dx,dy)
+	U2[2:-2,2:-2,:]  = (3./4.)*U[2:-2,2:-2,:] + (1./4.)*U1[2:-2,2:-2,:] + (1./4.)*dt1*L1
+	#t += dt1
+	F2= fluxUpdate(U2,F1)
+	
+	L2, dt2 = LFunc(U2,F2,dx,dy)
+	U[2:-2,2:-2,:] = (1./3.)*U[2:-2,2:-2,:] + (2./3.)*U2[2:-2,2:-2,:] + (2./3.)*dt2*L2
+	t += dt
 	# Update all fluxes based on this update
-	F = fluxUpdate(U,F,n)
+	F = fluxUpdate(U,F)
+	#print t
+	
 	#print U[:,:,n,0]
 ##	# Reinforce BCS (return ghost cells to initial conditions) (Need two ghost cells on each side for 2nd order spatial)
 #	U[0:2,:,n+1,:]  = U[0:2,:,0,:]
@@ -270,36 +284,34 @@ for n in range(Nt-1):
 #	F[:,-2,n+1,:] = F[:,-3,n+1,:]
 
 	# Try fixed BCS in x, periodic in y
-	U[0,:,n+1,:]  = U[0,:,0,:]
-	F[0,:,n+1,:]  = F[0,:,0,:]
-	U[-1,:,n+1,:] = U[-1,:,0,:]
-	F[-1,:,n+1,:] = F[-1,:,0,:]
+	U[:,0,:]  = IU[:,0,:]
+	F[:,0,:]  = IF[:,0,:]
+	U[:,-1,:] = IU[:,-1,:]
+	F[:,-1,:] = IF[:,-1,:]
 	
-	U[:,0,n+1,:]  = (U[:,-3,n+1,:]+U[:,2,n+1,:])/2.
-	F[:,0,n+1,:]  = (F[:,-3,n+1,:]+F[:,2,n+1,:])/2.
-	U[:,-1,n+1,:] = (U[:,-3,n+1,:]+U[:,2,n+1,:])/2.
-	F[:,-1,n+1,:] = (F[:,-3,n+1,:]+F[:,2,n+1,:])/2.
+	U[0,:,:]  = (U[-3,:,:])#+U[:,2,:])/2.
+	F[0,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
+	U[-1,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
+	F[-1,:,:] = (F[-3,:,:])#+F[:,2,:])/2.
 	
-	U[1,:,n+1,:]  = U[1,:,0,:]
-	F[1,:,n+1,:]  = F[1,:,0,:]
-	U[-2,:,n+1,:] = U[-2,:,0,:]
-	F[-2,:,n+1,:] = F[-2,:,0,:]
+	U[:,1,:]  = IU[:,1,:]
+	F[:,1,:]  = IF[:,1,:]
+	U[:,-2,:] = IU[:,-2,:]
+	F[:,-2,:] = IF[:,-2,:]
 	
-	U[:,1,n+1,:]  =(U[:,-3,n+1,:]+U[:,2,n+1,:])/2.
-	F[:,1,n+1,:]  = (F[:,-3,n+1,:]+F[:,2,n+1,:])/2.
-	U[:,-2,n+1,:] = (U[:,-3,n+1,:]+U[:,2,n+1,:])/2.
-	F[:,-2,n+1,:] =(F[:,-3,n+1,:]+F[:,2,n+1,:])/2.
-	F= fluxUpdate(U,F,n)
+	U[1,:,:]  =(U[-3,:,:])#+U[:,2,:])/2.
+	F[1,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
+	U[-2,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
+	F[-2,:,:] =(F[-3,:,:])#+F[:,2,:])/2.
+	F= fluxUpdate(U,F)
 	U1 = U.copy()
 	U2 = U.copy()
 	F1 = F.copy()
 	F2 = F.copy()
-
+	
 	if count % 50 == 0:
-		print count*100/Nt , '% Done'
+		print (tMin+t)*100/(tMax-tMin), '% Done'
 		
-#print F[:,:,0,2]
-#print F[:,:,-1,2]
 
 ## PLOTTING
 fig = plt.figure()
@@ -307,9 +319,8 @@ ax = fig.gca()
 
 X, Y = np.meshgrid(xPoints, yPoints)
 
+#surf = plt.imshow(U[:,:,0]) #plots 
 
-surf = plt.contourf(X[:,:],Y[:,:],U[:,:,-1,0]) #plots 
-plt.colorbar(surf)
 
 #print 'Final Density'
 #print U[:,:,-1,0]
@@ -325,11 +336,13 @@ plt.xlim([xMin ,xMax])
 
 
 def animate(i):
-	ax.clear() # Seems necessary to prevent data overlapping between frames
-	plt.imshow(U[:,:,i,0] , origin = 'lower')   # update the data
+	ax.clear()
+	surf = plt.imshow(UWhole[:,:,0,i] , origin = 'lower',interpolation ='bilinear')   # update the data
 	plt.xlabel('X Position' , fontsize = 18)
 	plt.ylabel('Y Position', fontsize =18)
+	#ax.clear() # Seems necessary to prevent data overlapping between frames
 	#ax.set_zlim([rhoR, rhoL])
+
 	return surf,
 
 
@@ -338,11 +351,12 @@ def init():
 	ax.plot_surface([],[],[], rstride=5, cstride=5,cmap=cm.coolwarm)  
 	return surf,
 
-ani = animation.FuncAnimation(fig, animate, np.arange(1,Nt,3),  interval=25, blit=False)
-
+ani = animation.FuncAnimation(fig, animate, np.arange(1,len(UWhole[0,0,0,:]),3),  interval=25, blit=False)
 
 ani.save('my_animation.mp4')                           
 plt.show()
+
+
 
 
 
