@@ -128,24 +128,25 @@ def implosion(U,F,xPoints,yPoints,gamma,p1,p2,rho1,rho2,vx1,vx2,vy1,vy2):
 	F[:,:,3] = (energyFunc(p,gamma,rho,vx,vy) + p) *vx
 	return U, F
 	
-def bessel(U,F,xPoints,gamma,rho,p,v):
-	pBound = np.abs(ss.j0(10*xPoints))# Pressure at a boundary due to Bessel beam
-	
-	# Uniform fluid throughout
-	U[:,:,0] = rho
-	U[:,:,1] = rho*v
-	U[:,:,2] = energyFunc(p,gamma,rho,v)
-	F[:,:,0] = rho*v
-	F[:,:,1] = rho*v**2 + p
-	F[:,:,2] = (energyFunc(p,gamma,rho,v) + p)*v
-	
+def bessel(t,U,F,xPoints,gamma,rho,p,vx,vy,xScale,pScale):
+	#pBess = np.zeros([len(yPoints),len(xPoints)])
+	pBess = (np.cos(2*np.pi*t)+1)*pScale*np.abs(ss.j0(xScale*xPoints))# Pressure at a boundary due to Bessel beam
+	if t < 10**(-14):
+		# Uniform fluid throughout
+		U[:,:,0] = rho
+		U[:,:,1] = rho*vx
+		U[:,:,2] = rho*vy
+		U[:,:,3] = energyFunc(p,gamma,rho,vx,vy)
+		F[:,:,0] = rho*vx
+		F[:,:,1] = rho*vx**2 + p
+		F[:,:,2] = rho*vx*vy
+		F[:,:,3] = (energyFunc(p,gamma,rho,vx,vy) + p)*vx
+
 	# Change one boundary to have pressure pBound
-	U[0,:,0,2] = energyFunc(pBound,gamma,rho,v)
-	F[0,:,0,1] = rho*v**2 + pBound
-	F[0,:,0,2] = (energyFunc(pBound,gamma,rho,v) + pBound)*v
-	U[1,:,0,2] = energyFunc(pBound,gamma,rho,v)
-	F[1,:,0,1] = rho*v**2 + pBound
-	F[1,:,0,2] = (energyFunc(pBound,gamma,rho,v) + pBound)*v
+	U[0:2,:,3] = energyFunc(pBess,gamma,rho,vx,vy)
+	F[0:2,:,1] = rho*vx**2 + pBess
+	F[0:2,:,3] = (energyFunc(pBess,gamma,rho,vx,vy) + pBess)*vx
+
 	
 	#plt.plot(U[0,:,0,2])
 	#plt.show()

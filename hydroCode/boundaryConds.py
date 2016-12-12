@@ -69,3 +69,32 @@ def periodicRow(U,F,IU,IF):
 	U[-2,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
 	F[-2,:,:] =(F[-3,:,:])#+F[:,2,:])/2.
 	return U, F
+	
+# Hard reflecting walls
+def reflect(U,F,IU,IF):
+	# Fixed portion
+	U[0:2,:,:]  = IU[0:2,:,:]
+	F[0:2,:,:]  = IF[0:2,:,:]
+
+	U[-2::,:,:] = IU[-2::,:,:]
+	F[-2::,:,:] = IF[-2::,:,:]
+
+	
+	U[:,0:2,:]  = IU[:,0:2,:]
+	F[:,0:2,:]  = IF[:,0:2,:]
+
+	U[:,-2::,:] = IU[:,-2::,:]
+	F[:,-2::,:] = IF[:,-2::,:]
+	
+	# Reflecting portion
+	for i in range(2,len(U[:,0,0])-2):
+		if U[2,i,1] <0:
+			U[2,i,1] = -U[2,i,1]
+		if U[-3,i,1] > 0:
+			U[-3,i,1] = -U[-3,i,1]
+		if U[i,2,2] <0:
+			U[i,2,2] = -U[i,2,2]
+		if U[i,-3,2] > 0:
+			U[i,-3,2] = -U[i,-3,2]
+	
+	return U, F

@@ -7,6 +7,10 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 import matplotlib.animation as animation
 import initialConds
 import boundaryConds
+import os
+import time
+ 
+
 
 
 # These are the "Tableau 20" colors as RGB.    
@@ -168,21 +172,22 @@ def interpolate(vx,vy,gamma,p,rho):
 
 ## COMPUTATION PARAMETERS
 tMin    = 0.
-tMax    = 1.0
+tMax    = 2.0
+t = tMin
 #Nt      = 500
 #dt      = (tMax-tMin)/Nt
 #tPoints = np.linspace(tMin,tMax,Nt)
 
-CFL = 0.5
+CFL = 0.7
 
-xMin    = 0.
-xMax    =  1.
-Nx      = 128
+xMin    = -.5
+xMax    =  0.5
+Nx      = 256
 dx      = (xMax - xMin)/Nx
 
 yMin    = 0.
-yMax    = 1.
-Ny      = 128
+yMax    = 5.0
+Ny      = 256
 dy      = (yMax - yMin)/Ny
 
 
@@ -212,9 +217,10 @@ U2 = np.zeros(U.shape)
 
 #U, F = initialConds.sod1D(U,F,gamma, rhoL,pL,vxL,vyL, rhoR,pR,vxR,vyR)
 #U, F = initialConds.bessel(U,F,xPoints,gamma ,1.0,1.0,1.0)
-U,F =   initialConds.kelvHelm(U,F,xPoints,yPoints,gamma,2.5,1.0,2.0,-0.5,0.5,0.035,9*10**(-2))
-#U,F = initialConds.kelvHelm2(U,F,xPoints,yPoints,gamma,1.0,1.0,10**(-2),10**(-1),2,0.1)
+#U,F =   initialConds.kelvHelm(U,F,xPoints,yPoints,gamma,2.5,1.0,2.0,-0.5,0.5,0.035,1*10**(-1))
+#U,F = initialConds.kelvHelm2(U,F,xPoints,yPoints,gamma,1.0,1.0,10**(-1),10**(-1),2,0.1)
 #U, F = initialConds.implosion(U,F,xPoints,yPoints,gamma, 1.0, 0.140, 1.0, 0.125, 0.0, 0.0, 0.0 ,0.0)
+U,F = initialConds.bessel(t,U,F,xPoints,gamma,1.0,1.0,0.0,0.0,10.,1.)
 IU, IF = U.copy(),F.copy()
 U1 = U.copy() # Need to maintain BCS for U1 and U2 as well
 U2 = U.copy()
@@ -224,7 +230,7 @@ Fnew = F.copy()
 
 ## MAIN LOOP
 count = 0 # Track loop number
-t = tMin
+
 UWhole = np.zeros([Nx,Ny,4,1])
 while t < tMax:
 	count +=1 
@@ -233,137 +239,108 @@ while t < tMax:
 	#F = fluxUpdate(U,F)
 	#RK3 Updating
 	L, dt = LFunc(U,F,dx,dy)
-	U[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L # FIRST ORDER TIME TO TEST OTHER STUFF
+	#U[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L # FIRST ORDER TIME TO TEST OTHER STUFF
 	
-	#U1[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L
-	##t += dt
-	#F1 = fluxUpdate(U1,F)
+	U1[2:-2,2:-2,:]  = U[2:-2,2:-2,:] + dt*L
+	#t += dt
+	F1 = fluxUpdate(U1,F)
 	
-	#L1, dt1 = LFunc(U1,F1,dx,dy)
-	#U2[2:-2,2:-2,:]  = (3./4.)*U[2:-2,2:-2,:] + (1./4.)*U1[2:-2,2:-2,:] + (1./4.)*dt1*L1
-	##t += dt1
-	#F2= fluxUpdate(U2,F1)
+	L1, dt1 = LFunc(U1,F1,dx,dy)
+	U2[2:-2,2:-2,:]  = (3./4.)*U[2:-2,2:-2,:] + (1./4.)*U1[2:-2,2:-2,:] + (1./4.)*dt1*L1
+	#t += dt1
+	F2= fluxUpdate(U2,F1)
 	
-	#L2, dt2 = LFunc(U2,F2,dx,dy)
-	#U[2:-2,2:-2,:] = (1./3.)*U[2:-2,2:-2,:] + (2./3.)*U2[2:-2,2:-2,:] + (2./3.)*dt2*L2
+	L2, dt2 = LFunc(U2,F2,dx,dy)
+	U[2:-2,2:-2,:] = (1./3.)*U[2:-2,2:-2,:] + (2./3.)*U2[2:-2,2:-2,:] + (2./3.)*dt2*L2
 	t += dt
 	#print dt#,dt1,dt2
 	# Update all fluxes based on this update
 	F = fluxUpdate(U,F)
 	
-	
-	#print U[:,:,n,0]
-##	# Reinforce BCS (return ghost cells to initial conditions) (Need two ghost cells on each side for 2nd order spatial)
-#	U[0:2,:,n+1,:]  = U[0:2,:,0,:]
-#	F[0:2,:,n+1,:]  = F[0:2,:,0,:]
 
-#	U[-2::,:,n+1,:] = U[-2::,:,0,:]
-#	F[-2::,:,n+1,:] = F[-2::,:,0,:]
-
-#	
-#	U[:,0:2,n+1,:]  = U[:,0:2,0,:]
-#	F[:,0:2,n+1,:]  = F[:,0:2,0,:]
-
-#	U[:,-2::,n+1,:] = U[:,-2::,0,:]
-#	F[:,-2::,n+1,:] = F[:,-2::,0,:]
-
-#	# Try Outflow BCS
-#	U[0,:,n+1,:]  = U[2,:,n+1,:]
-#	F[0,:,n+1,:]  = F[2,:,n+1,:]
-#	U[-1,:,n+1,:] = U[-3,:,n+1,:]
-#	F[-1,:,n+1,:] = F[-3,:,n+1,:]
-#	
-#	U[:,0,n+1,:]  = U[:,2,n+1,:]
-#	F[:,0,n+1,:]  = F[:,2,n+1,:]
-#	U[:,-1,n+1,:] = U[:,-3,n+1,:]
-#	F[:,-1,n+1,:] = F[:,-3,n+1,:]
-#	
-#	U[1,:,n+1,:]  = U[2,:,n+1,:]
-#	F[1,:,n+1,:]  = F[2,:,n+1,:]
-#	U[-2,:,n+1,:] = U[-3,:,n+1,:]
-#	F[-2,:,n+1,:] = F[-3,:,n+1,:]
-#	
-#	U[:,1,n+1,:]  = U[:,2,n+1,:]
-#	F[:,1,n+1,:]  = F[:,2,n+1,:]
-#	U[:,-2,n+1,:] = U[:,-3,n+1,:]
-#	F[:,-2,n+1,:] = F[:,-3,n+1,:]
-
-	# Try fixed BCS in x, periodic in y
-	#U[:,0,:]  = IU[:,0,:]
-	#F[:,0,:]  = IF[:,0,:]
-	#U[:,-1,:] = IU[:,-1,:]
-	#F[:,-1,:] = IF[:,-1,:]
-	
-	#U[0,:,:]  = (U[-3,:,:])#+U[:,2,:])/2.
-	#F[0,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
-	#U[-1,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
-	#F[-1,:,:] = (F[-3,:,:])#+F[:,2,:])/2.
-	
-	#U[:,1,:]  = IU[:,1,:]
-	#F[:,1,:]  = IF[:,1,:]
-	#U[:,-2,:] = IU[:,-2,:]
-	#F[:,-2,:] = IF[:,-2,:]
-	
-	#U[1,:,:]  =(U[-3,:,:])#+U[:,2,:])/2.
-	#F[1,:,:]  = (F[-3,:,:])#+F[:,2,:])/2.
-	#U[-2,:,:] = (U[-3,:,:])#+U[:,2,:])/2.
-	#F[-2,:,:] =(F[-3,:,:])#+F[:,2,:])/2.
-	U, F = boundaryConds.periodicRow(U,F,IU,IF)
-	#U, F = boundaryConds.fixed(U,F,IU,IF)
-#	U, F = boundaryConds.outflow(U,F,IU,IF)
+	#U, F = boundaryConds.periodicRow(U,F,IU,IF)
+	U, F = boundaryConds.fixed(U,F,IU,IF)
+	#U, F = boundaryConds.outflow(U,F,IU,IF)
+	#U, F = boundaryConds.reflect(U,F,IU,IF)
+	U,F = initialConds.bessel(t,U,F,xPoints,gamma,1.0,1.0,0.0,0.0,10.,1.) #updates time dependence of bessel beam on boundary
 	F= fluxUpdate(U,F)
 	U1 = U.copy()
 	U2 = U.copy()
 	F1 = F.copy()
 	F2 = F.copy()
 	
-	if count % 50 == 0:
+	if count % 10 == 0:
 		print (tMin+t)*100/(tMax-tMin), '% Done'
+if not os.path.exists('bessel'+str(Nx)+'.npy'):
+	np.save('bessel'+str(Nx),UWhole)
+	print 'Saved!'
+else:
+	print 'File found already! Preventing overwrite by appending datetime'
+	np.save('bessel'+str(Nx)+str(time.strftime("%Y%m%d-%H%M%S")),UWhole)
+### PLOTTING
 
 
-## PLOTTING
+#f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex='col', sharey='row')
+
+#X, Y = np.meshgrid(xPoints, yPoints)
+
+#Nt = len(UWhole[0,0,0,:]) # Total time steps taken
+
+
+
+##print 'Final Density'
+##print U[:,:,-1,0]
+##plt.title('Final Density Profile', fontsize = 24)
+#plt.xlabel('X Position' , fontsize = 18)
+#plt.ylabel('Y Position', fontsize =18)
+#plt.tick_params(labelsize=14)
+#ax1.set_ylim([2,Ny-2])
+#ax1.set_xlim([2,Nx-2])
+#ax2.set_ylim([2,Ny-2])
+#ax2.set_xlim([2,Nx-2])
+#ax3.set_ylim([2,Ny-2])
+#ax3.set_xlim([2,Nx-2])
+#ax4.set_ylim([2,Ny-2])
+#ax4.set_xlim([2,Nx-2])
+##ax.set_zlim([rhoR, rhoL])
+##plt.legend(loc = 'center')
+##ax.view_init(elev=10., azim=60)
+#ax1.imshow(UWhole[2:-2,2:-2,0,1],cmap=cm.seismic) #plots 
+#ax2.imshow(UWhole[2:-2,2:-2,0,Nt/3],cmap=cm.seismic) 
+#ax3.imshow(UWhole[2:-2,2:-2,0,2*Nt/3],cmap=cm.seismic) 
+#ax4.imshow(UWhole[2:-2,2:-2,0,-1],cmap=cm.seismic) 
+#plt.show(f)
+
 #fig = plt.figure()
 #ax = fig.gca()
+#m = cm.ScalarMappable(cmap=cm.jet)
+#m.set_array(UWhole[2:-2,2:-2,0,i])
+#plt.colorbar(m)
 
-f, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, sharex='col', sharey='row')
-
-X, Y = np.meshgrid(xPoints, yPoints)
-
-Nt = len(UWhole[0,0,0,:]) # Total time steps taken
-
-ax1.imshow(UWhole[:,:,0,1]) #plots 
-ax2.imshow(UWhole[:,:,0,Nt/3]) 
-ax3.imshow(UWhole[:,:,0,2*Nt/3]) 
-ax4.imshow(UWhole[:,:,0,-1]) 
-
-#print 'Final Density'
-#print U[:,:,-1,0]
-#plt.title('Final Density Profile', fontsize = 24)
-plt.xlabel('X Position' , fontsize = 18)
-plt.ylabel('Y Position', fontsize =18)
-plt.tick_params(labelsize=14)
-ax1.set_ylim([0,Ny])
-ax1.set_xlim([0,Nx])
-ax2.set_ylim([0,Ny])
-ax2.set_xlim([0,Nx])
-ax3.set_ylim([0,Ny])
-ax3.set_xlim([0,Nx])
-ax4.set_ylim([0,Ny])
-ax4.set_xlim([0,Nx])
-#ax.set_zlim([rhoR, rhoL])
-#plt.legend(loc = 'center')
-#ax.view_init(elev=10., azim=60)
-
-
+#frameStep = 5
 #def animate(i):
 #	ax.clear()
-#	surf = plt.imshow(UWhole[:,:,0,i] , origin = 'lower',interpolation ='bilinear')   # update the data
+#	surf = plt.imshow(UWhole[2:-2,2:-2,0,i] , origin = 'lower',interpolation ='none', cmap = cm.jet)   # update the data
 #	plt.xlabel('X Position' , fontsize = 18)
 #	plt.ylabel('Y Position', fontsize =18)
+#	plt.xlim([2,Nx-5])
+#	plt.ylim([0,Ny-5])
+#	plt.title('Density Colormap', fontsize = 24)
 #	#ax.clear() # Seems necessary to prevent data overlapping between frames
 #	#ax.set_zlim([rhoR, rhoL])
-
-#	return surf,
+#	
+##	surf = plt.streamplot(X, Y, UWhole[:,:,1,i]*((tMax)/Nt)/UWhole[:,:,0,i] ,UWhole[:,:,2,i]*((tMax)/Nt)/UWhole[:,:,0,i],          # data
+##               color='blue',         # array that determines the colour
+##               cmap=cm.seismic,        # colour map
+##               linewidth=2,         # line thickness
+##               arrowstyle='->',     # arrow style
+##               arrowsize=1.5)       # arrow size
+##               
+#               
+#	if (i/frameStep) % 10 ==0:
+#		print 'Animating Frame', i/frameStep , '/' , Nt/frameStep
+#		
+#	return surf, 
 
 
 ## Init only required for blitting to give a clean slate.
@@ -371,10 +348,10 @@ ax4.set_xlim([0,Nx])
 #	ax.plot_surface([],[],[], rstride=5, cstride=5,cmap=cm.coolwarm)  
 #	return surf,
 
-#ani = animation.FuncAnimation(fig, animate, np.arange(1,len(UWhole[0,0,0,:]),3),  interval=25, blit=False)
+#ani = animation.FuncAnimation(fig, animate, np.arange(1,Nt,frameStep),  interval=25, blit=False)
 
 #ani.save('my_animation.mp4')                           
-plt.show()
+#plt.show(fig)
 
 
 
